@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Best Cafés in Tel Aviv — Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --espresso: #1d1613;
+    --espresso-2: #2b211c;
+    --cream: #f4ead9;
+    --latte: #c8a26b;
+    --latte-2: #a97f4f;
+    --muted: #b7a68f;
+    --terracotta: #d97b56;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--espresso); }
+  #map { position: absolute; inset: 0; z-index: 1; }
+
+  /* Header card */
+  #header {
+    position: absolute; top: 12px; left: 12px; right: 12px; z-index: 1000;
+    background: rgba(29,22,19,0.92); backdrop-filter: blur(8px);
+    border: 1px solid rgba(200,162,107,0.35); border-radius: 16px;
+    padding: 12px 16px; color: var(--cream); box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+    display: flex; align-items: center; gap: 12px;
+    pointer-events: none;
+  }
+  #header h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.2px; line-height: 1.25; }
+  #header .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  #header .badge {
+    flex: 0 0 auto; background: var(--terracotta); color: #fff; font-weight: 800;
+    font-size: 13px; border-radius: 999px; padding: 6px 10px; margin-left: auto;
+  }
+
+  /* Bottom list sheet */
+  #sheet {
+    position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 1000;
+    background: rgba(29,22,19,0.94); backdrop-filter: blur(10px);
+    border: 1px solid rgba(200,162,107,0.3); border-radius: 18px;
+    color: var(--cream); box-shadow: 0 -6px 30px rgba(0,0,0,0.5);
+    max-height: 42vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  #sheet-head {
+    padding: 12px 16px 10px; display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+  }
+  #sheet-head .title { font-size: 14px; font-weight: 700; color: var(--latte); }
+  #sheet-head .hint { font-size: 12px; color: var(--muted); }
+  #sheet-head .chev { color: var(--latte); font-size: 14px; transition: transform .2s; }
+  #sheet.collapsed .chev { transform: rotate(-90deg); }
+  #sheet.collapsed #list { display: none; }
+  #list { overflow-y: auto; padding: 0 8px 10px; overscroll-behavior: contain; }
+  .row {
+    display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 12px;
+    cursor: pointer; transition: background .15s;
+  }
+  .row:hover { background: rgba(200,162,107,0.12); }
+  .row.active { background: rgba(217,123,86,0.18); }
+  .num {
+    flex: 0 0 30px; height: 30px; border-radius: 50%;
+    background: var(--terracotta); color: #fff; font-weight: 800; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .rname { font-size: 14.5px; font-weight: 600; line-height: 1.2; }
+  .raddr { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .rght { margin-left: auto; font-size: 10.5px; color: var(--latte-2); text-align: right; flex: 0 0 auto; }
+
+  /* Leaflet custom marker */
+  .cafe-pin {
+    background: var(--terracotta); color: #fff; font-weight: 800; font-size: 13px;
+    width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.45);
+  }
+  .cafe-pin span { transform: rotate(45deg); }
+  .leaflet-popup-content-wrapper { background: var(--espresso-2); color: var(--cream); border-radius: 12px; border: 1px solid rgba(200,162,107,0.35); }
+  .leaflet-popup-content { margin: 10px 14px; }
+  .leaflet-popup-tip { background: var(--espresso-2); border: 1px solid rgba(200,162,107,0.35); }
+  .leaflet-popup-content .pname { font-weight: 700; font-size: 15px; }
+  .leaflet-popup-content .paddr { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .leaflet-popup-content .parea { font-size: 11.5px; color: var(--latte); margin-top: 1px; }
+  .leaflet-popup-content .parea a { color: var(--latte); }
+  .leaflet-container { font-family: inherit; }
+  .leaflet-control-attribution { font-size: 9px !important; }
+  @media (min-width: 768px) {
+    #header { left: 16px; top: 16px; right: auto; max-width: 380px; pointer-events: auto; }
+    #sheet { left: 16px; right: auto; bottom: 16px; width: 380px; max-height: 50vh; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="header">
+  <div>
+    <h1>☕ Best Cafés in Tel Aviv</h1>
+    <div class="sub">12 gorgeous spots · via <b>@yallabikes</b></div>
+  </div>
+  <div class="badge">12</div>
+</div>
+
+<div id="sheet">
+  <div id="sheet-head">
+    <div class="title">The List</div>
+    <div class="hint">tap a café to fly to it</div>
+    <div class="chev">▼</div>
+  </div>
+  <div id="list"></div>
+</div>
+
+<script>
+const CAFES = [{"name": "Mitzpor", "address": "Prof. Heinrich Mendelssohn Ln 4", "area": "Shoken / HaHorashot", "lat": 32.0466234, "lon": 34.7714075}, {"name": "Common People", "address": "Ahad Ha'Am St 32", "area": "Lev Tel Aviv", "lat": 32.0672115, "lon": 34.7768245}, {"name": "Fugazi", "address": "Nahalat Binyamin St 12", "area": "Lev Tel Aviv", "lat": 32.068399, "lon": 34.769887}, {"name": "Ada Lewinsky", "address": "Zevulun St 9", "area": "Florentin", "lat": 32.059742, "lon": 34.7728617}, {"name": "Simhovich", "address": "Mazal Dagim St 1", "area": "Jaffa", "lat": 32.0533967, "lon": 34.7519154}, {"name": "Coffee Lane", "address": "Bar Yokhai St 20", "area": "HaTikva / Abu Kabir", "lat": 32.0530458, "lon": 34.7731481}, {"name": "Nomena", "address": "Allenby St 54", "area": "Lev Tel Aviv", "lat": 32.0627053, "lon": 34.7748797}, {"name": "Gat Rimon", "address": "Gat Rimon St 13, Park HaMesila", "area": "Florentin / Park HaMesila", "lat": 32.0610676, "lon": 34.7715444}, {"name": "Mix & Matcha", "address": "Nahalat Binyamin St 5", "area": "Lev Tel Aviv", "lat": 32.068829, "lon": 34.770122}, {"name": "Algier", "address": "Bialik St 26", "area": "Lev Tel Aviv / Bialik Square", "lat": 32.0720511, "lon": 34.7704078}, {"name": "Migdalor", "address": "Rehavam Ze'evi Gandi St 1", "area": "Tel Aviv Port boardwalk", "lat": 32.1035464, "lon": 34.7770385}, {"name": "Debox", "address": "Bar Giyora St 2", "area": "Old North", "lat": 32.0762402, "lon": 34.7757381}];
+
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: true }).setView([32.075, 34.77], 13);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
+
+const markers = [];
+CAFES.forEach((c, i) => {
+  const n = i + 1;
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="cafe-pin"><span>${n}</span></div>`,
+    iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -28]
+  });
+  const marker = L.marker([c.lat, c.lon], { icon, title: c.name }).addTo(map);
+  const gm = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.name + ' Tel Aviv')}`;
+  marker.bindPopup(
+    `<div class="pname">${n}. ${c.name}</div>` +
+    `<div class="paddr">${c.address}</div>` +
+    `<div class="parea">📍 ${c.area} · <a href="${gm}" target="_blank">Open in Google Maps ↗</a></div>`
+  );
+  marker.on('click', () => setActive(n));
+  markers.push(marker);
+});
+
+const listEl = document.getElementById('list');
+CAFES.forEach((c, i) => {
+  const n = i + 1;
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `
+    <div class="num">${n}</div>
+    <div>
+      <div class="rname">${c.name}</div>
+      <div class="raddr">${c.address}</div>
+    </div>
+    <div class="rght">${c.area}</div>`;
+  row.addEventListener('click', () => {
+    map.flyTo([c.lat, c.lon], 16, { duration: 0.8 });
+    markers[i].openPopup();
+    setActive(n);
+  });
+  listEl.appendChild(row);
+});
+
+function setActive(n) {
+  document.querySelectorAll('.row').forEach(r => r.classList.remove('active'));
+  const row = listEl.querySelector(`.row:nth-child(${n})`);
+  if (row) row.classList.add('active');
+}
+
+const sheet = document.getElementById('sheet');
+document.getElementById('sheet-head').addEventListener('click', () => sheet.classList.toggle('collapsed'));
+
+const bounds = L.latLngBounds(CAFES.map(c => [c.lat, c.lon]));
+map.fitBounds(bounds.pad(0.15));
+</script>
+</body>
+</html>

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tel Aviv Top 10 Sandwich Map | YallaBikes Guide</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --card-hover: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #f59e0b;
+      --border: #334155;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+    /* Sidebar */
+    #sidebar {
+      width: 440px;
+      height: 100%;
+      background: #0f172a;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+    }
+    .header {
+      padding: 20px 24px;
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .header h1 {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    .source-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      margin-top: 10px;
+      text-decoration: none;
+      font-weight: 600;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .source-tag:hover {
+      background: rgba(245, 158, 11, 0.25);
+    }
+    .spot-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .spot-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .spot-card:hover {
+      background: var(--card-hover);
+      border-color: #64748b;
+      transform: translateY(-2px);
+    }
+    .spot-card.active {
+      background: #1e3a5f;
+      border-color: #38bdf8;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 6px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    .card-handle {
+      font-size: 0.78rem;
+      color: #38bdf8;
+      font-weight: 500;
+    }
+    .card-category {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .card-specialty {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 8px;
+    }
+    .card-quote {
+      font-size: 0.8rem;
+      font-style: italic;
+      color: #94a3b8;
+      line-height: 1.4;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+    }
+    .card-address {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Map container */
+    #map {
+      flex: 1;
+      height: 100%;
+      background: #0b1120;
+    }
+
+    /* Custom Leaflet Marker Styling */
+    .custom-marker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 13px;
+      border-radius: 50%;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      transition: transform 0.2s ease;
+    }
+    .custom-marker:hover {
+      transform: scale(1.15);
+      z-index: 1000 !important;
+    }
+    .custom-marker.active-pin {
+      transform: scale(1.3);
+      border-color: #38bdf8;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.8);
+    }
+
+    /* Leaflet Popup customization */
+    .leaflet-popup-content-wrapper {
+      background: #1e293b;
+      color: #f8fafc;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      padding: 4px;
+    }
+    .leaflet-popup-content {
+      margin: 12px 14px;
+      line-height: 1.4;
+    }
+    .leaflet-popup-tip {
+      background: #1e293b;
+    }
+    .popup-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 2px;
+    }
+    .popup-cat {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .popup-quote {
+      font-size: 0.82rem;
+      font-style: italic;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+    .popup-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 6px;
+    }
+    .popup-btn {
+      font-size: 0.75rem;
+      background: #2563eb;
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .popup-btn:hover {
+      background: #1d4ed8;
+    }
+
+    @media (max-width: 800px) {
+      body {
+        flex-direction: column-reverse;
+      }
+      #sidebar {
+        width: 100%;
+        height: 45vh;
+      }
+      #map {
+        height: 55vh;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="sidebar">
+    <div class="header">
+      <h1>🥪 Tel Aviv Sandwich Guide</h1>
+      <p>Top 10 curated sandwich spots from Instagram sensation <strong>@yallabikes</strong></p>
+      <a class="source-tag" href="https://www.instagram.com/reel/DbOTyM_ta-_/" target="_blank">
+        ▶ Watch Original Instagram Reel
+      </a>
+    </div>
+
+    <div class="spot-list" id="spotList">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const spotsData = [{"id": 1, "name": "EatMeat TLV", "handle": "@eatmeat___tlv", "category": "\ud83e\udd69 Steak / Meat", "specialty": "Juicy Minute Steak Sandwich", "lat": 32.0760106, "lon": 34.7765096, "address": "King George St 68 / 15, Tel Aviv", "reel_quote": "The most recommended sandwich from my followers - and for good reason. So juicy and delicious \ud83e\udd24", "color": "#ef4444"}, {"id": 2, "name": "HaCarmel 40", "handle": "@hacarmel40", "category": "\ud83d\udc1f Fish & Seafood", "specialty": "Fresh Fish Sandwich in Challah/Baguette", "lat": 32.068052, "lon": 34.768329, "address": "HaCarmel St 40 (Carmel Market), Tel Aviv", "reel_quote": "The best fish sandwich in the world. I eat this one all the time and never regret it. Light, fresh, perfect.", "color": "#0ea5e9"}, {"id": 3, "name": "Falafel Gabay", "handle": "@falafel.gabay", "category": "\ud83c\udf57 Schnitzel in Challah", "specialty": "Friday Challah Schnitzel with Matbucha & Fried Eggplant", "lat": 32.0769397, "lon": 34.7699515, "address": "Bograshov St 25, Tel Aviv", "reel_quote": "Their challah schnitzel is the best in Tel Aviv. I used to eat this every Friday for months\u2026", "color": "#f59e0b"}, {"id": 4, "name": "Sale e Freitag", "handle": "@salenefreitag", "category": "\ud83e\udd6f Bagels & NYC Style", "specialty": "Bacon, Egg & Cheese Bagel", "lat": 32.081703, "lon": 34.773541, "address": "Gordon St 42 / Dizengoff 93, Tel Aviv", "reel_quote": "Bacon, egg, and cheese - the only one I know of in Israel. Love their bagels. They bring me back to New York City.", "color": "#d97706"}, {"id": 5, "name": "Mob Deli", "handle": "@mobdeli", "category": "\ud83e\udd6a New York Deli & Pastrami", "specialty": "House-Cured Pastrami & Salt Beef", "lat": 32.0701068, "lon": 34.7704843, "address": "Allenby St 49, Tel Aviv", "reel_quote": "Gives @katzsdeli some good competition. Everything here is made in house and you can taste it \ud83d\ude4f\ud83c\udffd", "color": "#b91c1c"}, {"id": 6, "name": "Edmund Coffee", "handle": "@edmundcoffee", "category": "\u2615 Specialty Cafe Sandwich", "specialty": "Roasted Cabbage & Gourmet Cheese Toast/Sandwich", "lat": 32.061505, "lon": 34.771349, "address": "Yehuda HaLevi St 34, Tel Aviv", "reel_quote": "I was in shock the first time I tried this sandwich. The roasted cabbage is such a perfect touch.", "color": "#10b981"}, {"id": 7, "name": "Banh Mi 13", "handle": "@banh.mi13", "category": "\ud83e\udd56 Vietnamese Street Food", "specialty": "Vietnamese Beef Banh Mi with Pickled Daikon & Herbs", "lat": 32.0593886, "lon": 34.7724235, "address": "Nahalat Binyamin St 107 (Florentin), Tel Aviv", "reel_quote": "I love the beef. Such a perfect sandwich.", "color": "#8b5cf6"}, {"id": 8, "name": "Silly Kid", "handle": "@sillykid.tlv", "category": "\ud83c\udf54 Fried Chicken / Smash Crispy", "specialty": "Mega Crunchy Fried Chicken Sandwich & Loaded Fries", "lat": 32.0718311, "lon": 34.7691559, "address": "Yona HaNavi St 48 (Kerem HaTeimanim), Tel Aviv", "reel_quote": "The crunch here is crazy. Also the fries are some of my favorite in the city!", "color": "#ec4899"}, {"id": 9, "name": "Boser Wine Bar (Bosser)", "handle": "@bosserwines", "category": "\ud83c\udf77 Danish Sm\u00f8rrebr\u00f8d & Wine", "specialty": "Danish Breakfast Rye Sandwich / Sm\u00f8rrebr\u00f8d", "lat": 32.061073, "lon": 34.774615, "address": "HaHashmal St 5 (Gan HaHashmal), Tel Aviv", "reel_quote": "The only place in the world outside of Denmark to get this sandwich that I know of. This has been my go-to breakfast lately.", "color": "#6366f1"}, {"id": 10, "name": "Jasmino", "handle": "Jasmino (No IG)", "category": "\ud83e\udd59 Iconic Charcoal Street Pita", "specialty": "Charcoal-Grilled Kebabs, Spicy Sausage & Veal Sweetbreads", "lat": 32.0646487, "lon": 34.7726879, "address": "Allenby St 99, Tel Aviv", "reel_quote": "Jasmino. Of course they don\u2019t have Instagram. Ask any Tel Aviv local and they will give you directions \ud83d\udc99", "color": "#14b8a6"}];
+
+    // Init Map centered on Central Tel Aviv
+    const map = L.map('map', {
+      zoomControl: true
+    }).setView([32.072, 34.773], 14);
+
+    // CartoDB Dark Matter tiles
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://carto.com/">CARTO</a> | &copy; OpenStreetMap',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+
+    const markers = {};
+    const cards = {};
+    const listContainer = document.getElementById('spotList');
+
+    spotsData.forEach(spot => {
+      // Build Marker Icon
+      const customIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div id="pin-${spot.id}" class="custom-marker" style="background: ${spot.color}; width: 30px; height: 30px;">${spot.id}</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+        popupAnchor: [0, -15]
+      });
+
+      const marker = L.marker([spot.lat, spot.lon], { icon: customIcon }).addTo(map);
+      
+      const popupContent = `
+        <div>
+          <div class="popup-title">${spot.id}. ${spot.name}</div>
+          <div class="popup-cat">${spot.category} • <span style="color:#38bdf8">${spot.handle}</span></div>
+          <div style="font-weight:600; font-size:0.85rem; margin-bottom:4px;">✨ ${spot.specialty}</div>
+          <div class="popup-quote">"${spot.reel_quote}"</div>
+          <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">📍 ${spot.address}</div>
+          <div class="popup-actions">
+            <a class="popup-btn" href="https://www.google.com/maps/search/?api=1&query=${spot.lat},${spot.lon}" target="_blank">Google Maps ↗</a>
+          </div>
+        </div>
+      `;
+
+      marker.bindPopup(popupContent);
+      markers[spot.id] = marker;
+
+      // Build Sidebar Card
+      const card = document.createElement('div');
+      card.className = 'spot-card';
+      card.id = `card-${spot.id}`;
+      card.innerHTML = `
+        <div class="card-top">
+          <div>
+            <div class="card-title">${spot.name}</div>
+            <div class="card-handle">${spot.handle}</div>
+          </div>
+          <div class="badge" style="background: ${spot.color}">${spot.id}</div>
+        </div>
+        <div class="card-category">${spot.category}</div>
+        <div class="card-specialty">${spot.specialty}</div>
+        <div class="card-quote">"${spot.reel_quote}"</div>
+        <div class="card-address">📍 ${spot.address}</div>
+      `;
+
+      card.addEventListener('click', () => {
+        selectSpot(spot.id, true);
+      });
+
+      marker.on('click', () => {
+        selectSpot(spot.id, false);
+      });
+
+      listContainer.appendChild(card);
+      cards[spot.id] = card;
+    });
+
+    function selectSpot(id, pan) {
+      // Update UI active state
+      Object.keys(cards).forEach(key => {
+        cards[key].classList.remove('active');
+        const pin = document.getElementById(`pin-${key}`);
+        if (pin) pin.classList.remove('active-pin');
+      });
+
+      const activeCard = cards[id];
+      if (activeCard) {
+        activeCard.classList.add('active');
+        activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      const activePin = document.getElementById(`pin-${id}`);
+      if (activePin) activePin.classList.add('active-pin');
+
+      const marker = markers[id];
+      if (marker) {
+        marker.openPopup();
+        if (pan) {
+          map.flyTo(marker.getLatLng(), 16, { animate: true, duration: 0.8 });
+        }
+      }
+    }
+  </script>
+</body>
+</html>
